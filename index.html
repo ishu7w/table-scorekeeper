@@ -231,6 +231,7 @@ dialog::backdrop { background: #171e19b3; }
     <h1>Set up your table</h1>
     <p class="muted">Enter names in the order they should appear on the score sheet.</p>
     <form id="setup-form" novalidate>
+      <fieldset><legend>Game mode</legend><div class="choices"><button type="button" data-mode="blind" aria-pressed="true">Blind &amp; Shuffle</button><button type="button" data-mode="normal" aria-pressed="false">Normal Play</button></div></fieldset>
       <fieldset><legend>Number of players</legend>
         <div class="choices"><button type="button" data-count="4" aria-pressed="true">4 players</button><button type="button" data-count="5" aria-pressed="false">5 players</button></div>
       </fieldset>
@@ -264,6 +265,7 @@ const $ = id => document.getElementById(id);
 const key = 'table-scorebook-v1';
 let game = null;
 let count = 4;
+let selectedMode = 'blind';
 let setupNames = [];
 try {
   game = JSON.parse(localStorage.getItem(key));
@@ -320,9 +322,20 @@ function renderNames() {
   }
 }
 
+for (const option of document.querySelectorAll('[data-mode]')) {
+  option.onclick = () => {
+    selectedMode = option.dataset.mode;
+    for (const choice of document.querySelectorAll('[data-mode]')) {
+      choice.setAttribute('aria-pressed', String(choice.dataset.mode === selectedMode));
+    }
+  };
+}
+
 function newRound() {
   return {
     phase: 'expected',
+    reshuffled: false,
+    turn: 0,
     expected: game.names.map(() => ''),
     made: game.names.map(() => '')
   };
@@ -347,7 +360,7 @@ $('setup-form').onsubmit = event => {
     inputs[missing].focus();
     return;
   }
-  game = { names, rounds: [], edit: null };
+  game = { names, mode: selectedMode, rounds: [], edit: null };
   game.rounds.push(newRound());
   persist();
   renderGame();
@@ -358,6 +371,67 @@ function points(expected, made) {
   const prediction = BigInt(expected);
   const actual = BigInt(made);
   return actual < prediction ? 0n : prediction * 10n + actual - prediction;
+}
+
+function roundPoints(round, player) {
+  if (round.reshuffled) return BigInt(round.expected[player]) * 10n;
+  return points(round.expected[player], round.made[player]);
+}
+
+function blindEntry(round) {
+  return game.mode === 'blind' && round.phase === 'expected';
+}
+
+function selectBlindPlayer(index, player) {
+  const round = game.rounds[index];
+  if (!blindEntry(round) || game.edit) return;
+  round.turn = player;
+  persist();
+  renderGame();
+  const input = $('round-' + index).querySelector('[data-field="expected"][data-player="' + player + '"]');
+  if (input) input.focus();
+}
+
+function submitBlindPrediction(index, direction = 1) {
+  const round = game.rounds[index];
+  const player = round.turn || 0;
+  const value = round.expected[player].trim();
+  if (!/^[0-9]+$/.test(value)) {
+    const input = $('round-' + index).querySelector('[data-field="expected"][data-player="' + player + '"]');
+    if (input) {
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+    }
+    message('round-error', 'Enter a whole number of 0 or more for ' + game.names[player] + '.');
+    return;
+  }
+  round.expected[player] = String(BigInt(value));
+  const next = player + direction;
+  if (next >= 0 && next < game.names.length) {
+    selectBlindPlayer(index, next);
+    return;
+  }
+  if (direction < 0) {
+    selectBlindPlayer(index, 0);
+    return;
+  }
+  const missing = round.expected.findIndex(score => !/^[0-9]+$/.test(score.trim()));
+  if (missing !== -1) {
+    selectBlindPlayer(index, missing);
+    message('round-error', 'Enter a prediction for ' + game.names[missing] + ' before finishing.');
+    return;
+  }
+  const sum = round.expected.reduce((total, score) => total + BigInt(score), 0n);
+  if (sum <= 9n) {
+    round.reshuffled = true;
+    round.phase = 'complete';
+  } else {
+    round.phase = 'made';
+  }
+  persist();
+  renderGame();
+  const input = $('round-' + index).querySelector('input');
+  if (input) input.focus();
 }
 
 function format(score) {
@@ -397,15 +471,17 @@ function renderRound(round, index) {
   if (editing || round.phase !== 'complete') group.className = 'active';
   for (const [field, label] of [['expected', 'Expected'], ['made', 'Made'], ['score', 'Score']]) {
     const row = element('tr', undefined, field);
+    const hiddenPrediction = game.mode === 'blind' && field === 'expected' && !editing && (blindEntry(round) || round.reshuffled);
+    const currentTurn = (round.turn || 0);
     const canEnter = field !== 'score' && (editing || !game.edit) && editable(round, field, editing);
     if (canEnter) row.classList.add('entry');
     const heading = element('th');
     heading.scope = 'row';
     const title = element('div', undefined, 'row-title');
-    const words = element('span', 'R' + (index + 1));
+    const words = element('span', 'R' + (index + 1) + (round.reshuffled ? '*' : ''));
     words.append(' ', element('small', label));
     title.append(words);
-    if (field === 'expected' && round.phase !== 'expected' && !game.edit) {
+    if (field === 'expected' && round.phase !== 'expected' && !round.reshuffled && !game.edit) {
       const edit = button('Edit', () => beginEdit(index));
       edit.className = 'edit';
       edit.setAttribute('aria-label', 'Edit round ' + (index + 1));
@@ -415,11 +491,26 @@ function renderRound(round, index) {
     row.append(heading);
     game.names.forEach((_, player) => {
       const cell = element('td');
-      if (canEnter) {
-        cell.append(scoreInput(index, player, field, label, source[field][player], editing));
+      if (canEnter && (!hiddenPrediction || player === currentTurn)) {
+        const input = scoreInput(index, player, field, label, source[field][player], editing);
+        if (hiddenPrediction) {
+          input.type = 'password';
+          input.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === 'Tab') {
+              event.preventDefault();
+              submitBlindPrediction(index, event.shiftKey ? -1 : 1);
+            }
+          });
+        }
+        cell.append(input);
+      } else if (hiddenPrediction) {
+        const choose = button(source.expected[player] === '' ? '—' : '••••', () => selectBlindPlayer(index, player));
+        choose.className = 'cell';
+        choose.setAttribute('aria-label', 'Select ' + game.names[player] + ' to enter or change a private prediction');
+        cell.append(choose);
       } else {
         const value = field === 'score'
-          ? (round.phase === 'complete' ? format(points(round.expected[player], round.made[player])) : '—')
+          ? (round.phase === 'complete' ? format(roundPoints(round, player)) : '—')
           : source[field][player] || '—';
         cell.append(element('span', value, 'value'));
       }
@@ -479,7 +570,15 @@ function renderActions() {
   }
   const index = game.rounds.length - 1;
   const round = game.rounds[index];
-  const status = { expected: 'Enter predictions', made: 'Enter actual points', complete: 'Round saved' };
+  const status = { expected: 'Enter predictions', made: 'Enter actual points', complete: round.reshuffled ? 'Reshuffled round (*) · predictions added to totals' : 'Round saved' };
+  if (blindEntry(round)) {
+    const player = round.turn || 0;
+    actions.append(
+      roundStatus(index, 'Private prediction · ' + game.names[player] + ' (' + (player + 1) + '/' + game.names.length + ')'),
+      button(player === game.names.length - 1 ? 'Finish predictions' : 'Next player', () => submitBlindPrediction(index), true)
+    );
+    return;
+  }
   actions.append(roundStatus(index, status[round.phase]));
   if (round.phase === 'complete') {
     actions.append(button('Add round', () => {
@@ -515,7 +614,7 @@ function renderGame() {
     return;
   }
   message('round-error');
-  $('game-info').textContent = game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
+  $('game-info').textContent = (game.mode === 'blind' ? 'Blind & Shuffle' : 'Normal Play') + ' · ' + game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
   const sheet = $('sheet');
   const { scrollTop, scrollLeft } = sheet;
   const table = $('table');
@@ -543,7 +642,7 @@ $('total').onclick = () => {
   } else {
     const results = game.names.map((name, player) => ({
       name,
-      total: complete.reduce((sum, round) => sum + points(round.expected[player], round.made[player]), 0n)
+      total: complete.reduce((sum, round) => sum + roundPoints(round, player), 0n)
     })).sort((a, b) => a.total === b.total ? 0 : a.total > b.total ? -1 : 1);
     const lowest = results.at(-1).total;
     const allTied = results[0].total === lowest;
@@ -570,12 +669,15 @@ $('reset-dialog').onclose = () => {
   if ($('reset-dialog').returnValue !== 'reset') return;
   game = null;
   count = 4;
+  selectedMode = 'blind';
+  for (const option of document.querySelectorAll('[data-mode]')) option.setAttribute('aria-pressed', String(option.dataset.mode === selectedMode));
   setupNames = [];
   persist();
   renderGame();
   document.querySelector('[data-count="4"]').focus();
 };
 
+if (game && !game.mode) { game.mode = 'normal'; persist(); }
 renderGame();
 </script>
 </body>
