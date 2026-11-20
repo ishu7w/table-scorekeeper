@@ -231,6 +231,7 @@ dialog::backdrop { background: #171e19b3; }
     <h1>Set up your table</h1>
     <p class="muted">Enter names in the order they should appear on the score sheet.</p>
     <form id="setup-form" novalidate>
+      <fieldset><legend>Game mode</legend><div class="choices"><button type="button" data-mode="blind" aria-pressed="true">Blind &amp; Shuffle</button><button type="button" data-mode="normal" aria-pressed="false">Normal Play</button></div></fieldset>
       <fieldset><legend>Number of players</legend>
         <div class="choices"><button type="button" data-count="4" aria-pressed="true">4 players</button><button type="button" data-count="5" aria-pressed="false">5 players</button></div>
       </fieldset>
@@ -264,6 +265,7 @@ const $ = id => document.getElementById(id);
 const key = 'table-scorebook-v1';
 let game = null;
 let count = 4;
+let selectedMode = 'blind';
 let setupNames = [];
 try {
   game = JSON.parse(localStorage.getItem(key));
@@ -320,6 +322,15 @@ function renderNames() {
   }
 }
 
+for (const option of document.querySelectorAll('[data-mode]')) {
+  option.onclick = () => {
+    selectedMode = option.dataset.mode;
+    for (const choice of document.querySelectorAll('[data-mode]')) {
+      choice.setAttribute('aria-pressed', String(choice.dataset.mode === selectedMode));
+    }
+  };
+}
+
 function newRound() {
   return {
     phase: 'expected',
@@ -347,7 +358,7 @@ $('setup-form').onsubmit = event => {
     inputs[missing].focus();
     return;
   }
-  game = { names, rounds: [], edit: null };
+  game = { names, mode: selectedMode, rounds: [], edit: null };
   game.rounds.push(newRound());
   persist();
   renderGame();
@@ -515,7 +526,7 @@ function renderGame() {
     return;
   }
   message('round-error');
-  $('game-info').textContent = game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
+  $('game-info').textContent = (game.mode === 'blind' ? 'Blind & Shuffle' : 'Normal Play') + ' · ' + game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
   const sheet = $('sheet');
   const { scrollTop, scrollLeft } = sheet;
   const table = $('table');
@@ -570,12 +581,15 @@ $('reset-dialog').onclose = () => {
   if ($('reset-dialog').returnValue !== 'reset') return;
   game = null;
   count = 4;
+  selectedMode = 'blind';
+  for (const option of document.querySelectorAll('[data-mode]')) option.setAttribute('aria-pressed', String(option.dataset.mode === selectedMode));
   setupNames = [];
   persist();
   renderGame();
   document.querySelector('[data-count="4"]').focus();
 };
 
+if (game && !game.mode) { game.mode = 'normal'; persist(); }
 renderGame();
 </script>
 </body>
