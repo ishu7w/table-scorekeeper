@@ -470,7 +470,15 @@ function renderRound(round, index) {
       const cell = element('td');
       if (canEnter && (!hiddenPrediction || player === currentTurn)) {
         const input = scoreInput(index, player, field, label, source[field][player], editing);
-        if (hiddenPrediction) input.type = 'password';
+        if (hiddenPrediction) {
+          input.type = 'password';
+          input.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey)) {
+              event.preventDefault();
+              submitBlindPrediction(index);
+            }
+          });
+        }
         cell.append(input);
       } else if (hiddenPrediction) {
         cell.append(element('span', source.expected[player] === '' ? '—' : '••••', 'value'));
