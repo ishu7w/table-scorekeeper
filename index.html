@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:,">
+<title>Table · Card game scores</title>
+<style>
+:root {
+  --yellow: #ffe17c;
+  --charcoal: #171e19;
+  --sage: #b7c6c2;
+  --white: #ffffff;
+  --ink: #000000;
+  --muted: #171e19;
+  --small-shadow: 4px 4px 0 var(--ink);
+  --large-shadow: 8px 8px 0 var(--ink);
+  font-family: "Satoshi", system-ui, sans-serif;
+  font-weight: 500;
+  scroll-padding-top: 86px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--yellow) url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAJUlEQVR4nO3OMQ0AAAgEsdeBf6EsOGAitMntlwAAx9X0dwAAWGtWMQBpOlnTewAAAABJRU5ErkJggg==");
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--yellow);
+  border-bottom: 2px solid var(--ink);
+}
+.bar, main { width: min(100% - 48px, 1000px); margin: auto; }
+.bar { height: 78px; display: flex; align-items: center; justify-content: space-between; }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font: 900 27px/1 "Cabinet Grotesk", system-ui, sans-serif;
+  letter-spacing: -.06em;
+}
+.mark {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  width: 38px;
+  height: 38px;
+  gap: 2px;
+  padding: 8px;
+  background: var(--ink);
+  border-radius: 5px;
+}
+.mark i { background: var(--yellow); }
+main { padding: 48px 0 36px; }
+h1, h2, p { margin: 0; }
+h1, h2 {
+  font-family: "Cabinet Grotesk", system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -.065em;
+  line-height: 1;
+}
+h1 { font-size: clamp(37px, 6vw, 66px); }
+h2 { font-size: 32px; }
+p { line-height: 1.45; }
+.muted, small { color: var(--muted); }
+button, input { font: inherit; color: inherit; }
+button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: var(--small-shadow);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+button.primary { background: var(--charcoal); color: var(--white); }
+button[aria-pressed=true] { background: var(--yellow); }
+@media (hover: hover) {
+  button:hover { transform: translate(4px, 4px); box-shadow: none; }
+}
+button:active { transform: translate(4px, 4px); box-shadow: none; }
+:focus-visible { outline: 2px dashed var(--ink); outline-offset: 4px; }
+.setup { max-width: 520px; margin: auto; }
+.setup > p, .heading p { margin-top: 10px; }
+.setup form {
+  margin-top: 26px;
+  padding: clamp(16px, 4vw, 28px);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: var(--large-shadow);
+}
+fieldset { border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
+legend, label { font-size: 14px; font-weight: 780; }
+legend { margin-bottom: 10px; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.names { display: grid; gap: 10px; }
+.names label { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 8px; }
+input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  background: var(--white);
+  font-size: 16px;
+}
+input[aria-invalid=true] { background: var(--yellow); outline: 2px dashed var(--ink); }
+.setup .primary { width: 100%; margin-top: 22px; }
+.heading, .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.heading { margin-bottom: 22px; }
+#total { align-self: flex-end; min-width: 88px; }
+.scorebook {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: var(--large-shadow);
+}
+.sheet {
+  overflow: auto;
+  max-height: min(59dvh, 650px);
+  background: var(--white);
+  border-radius: 8px 8px 0 0;
+  scroll-padding-top: 64px;
+}
+table { border-spacing: 0; table-layout: fixed; width: 100%; font-size: 14px; }
+th, td { height: 54px; padding: 6px 8px; text-align: center; border-right: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+tr > :last-child { border-right: 0; }
+tbody:last-child tr:last-child > * { border-bottom: 0; }
+thead th { position: sticky; top: 0; z-index: 2; height: 46px; background: var(--sage); border-bottom: 2px solid var(--ink); overflow-wrap: anywhere; }
+tr > :first-child { position: sticky; left: 0; z-index: 1; width: 174px; padding-left: 12px; background: var(--white); text-align: left; border-right: 2px solid var(--ink); }
+thead tr > :first-child { z-index: 3; background: var(--sage); }
+tbody + tbody tr:first-child > * { border-top: 2px solid var(--ink); }
+.row-title { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+.row-title span { display: block; }
+.row-title small { display: block; font-size: 11px; font-weight: 650; }
+.score { background: var(--sage); }
+tbody:not(.active) .score > th:first-child { background: var(--sage); }
+.active .score > * { background: var(--white); }
+.entry > th:first-child { box-shadow: inset 4px 0 var(--ink); }
+.edit { padding: 0 8px; font-size: 12px; box-shadow: 2px 2px 0 var(--ink); }
+@media (hover: hover) {
+  .edit:hover { transform: translate(2px, 2px); }
+}
+.active .entry > * { background: var(--yellow); }
+.score td { font-weight: 800; }
+.cell { width: 100%; text-align: center; padding: 4px 1px; }
+.cell::placeholder { color: var(--charcoal); opacity: .7; }
+.cell:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.scorebook > .actions {
+  margin: 0;
+  padding: 11px 14px 15px;
+  border-top: 2px solid var(--ink);
+  border-radius: 0 0 8px 8px;
+  background: var(--charcoal);
+  color: var(--white);
+}
+.scorebook .actions .primary { background: var(--yellow); color: var(--ink); }
+.scorebook .actions button:focus-visible { outline-color: var(--yellow); }
+.round-status { display: grid; gap: 2px; font-size: 14px; line-height: 1.25; }
+.round-status small { color: var(--sage); font-size: 12px; font-weight: 650; }
+.scorebook > .error {
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 2px solid var(--ink);
+  background: var(--yellow);
+  overflow-wrap: anywhere;
+}
+.name-fields { margin-bottom: 0; }
+.value { display: block; overflow-wrap: anywhere; }
+.actions { margin-top: 22px; justify-content: flex-end; flex-wrap: wrap; }
+.actions p { margin-right: auto; font-weight: 700; }
+.error { font-size: 14px; font-weight: 800; margin-top: 12px; }
+dialog {
+  width: min(440px, calc(100% - 36px));
+  padding: 22px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: var(--large-shadow);
+}
+dialog::backdrop { background: #171e19b3; }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; }
+#reset-dialog p { margin-top: 12px; }
+.standings { list-style: none; margin: 0; padding: 0; border: 2px solid var(--ink); }
+.standings li { display: grid; grid-template-columns: 100px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 8px; overflow-wrap: anywhere; }
+.standings li + li { border-top: 1px solid var(--ink); }
+.standings li.leader { background: var(--yellow); }
+.standings li.last-place { background: var(--sage); }
+.completed-count { margin-bottom: 12px; font-size: 14px; }
+.rank { font-size: 13px; font-weight: 800; }
+.standings strong { min-width: 0; max-width: 110px; text-align: right; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .bar, main { width: calc(100% - 32px); }
+  .bar { height: 66px; }
+  main { padding-top: 30px; }
+  th, td { padding: 4px 2px; font-size: 12px; }
+  tr > :first-child { width: 78px; padding-left: 5px; }
+  .row-title { display: block; }
+  .heading { align-items: flex-end; }
+  .scorebook > .actions { gap: 8px; padding-inline: 9px; }
+  .scorebook .actions button { padding-inline: 10px; }
+  .scorebook .actions:has(.primary:nth-child(3)) .round-status { flex-basis: 100%; }
+  .edit { margin-top: 4px; width: calc(100% - 3px); }
+  table { min-width: calc(78px + var(--players) * 40px); }
+  .standings li { grid-template-columns: 82px minmax(0, 1fr) minmax(0, 30%); }
+}
+@media (max-width: 360px) {
+  thead th { font-size: 11px; }
+  #total { min-width: 66px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Table</div>
+  <button id="restart" hidden>Start over</button>
+</div></header>
+<main>
+  <p id="storage-error" class="error" role="status" hidden>Browser storage is unavailable. Keep this tab open to preserve your game.</p>
+  <section class="setup" id="setup">
+    <h1>Set up your table</h1>
+    <p class="muted">Enter names in the order they should appear on the score sheet.</p>
+    <form id="setup-form" novalidate>
+      <fieldset><legend>Number of players</legend>
+        <div class="choices"><button type="button" data-count="4" aria-pressed="true">4 players</button><button type="button" data-count="5" aria-pressed="false">5 players</button></div>
+      </fieldset>
+      <fieldset class="name-fields"><legend>Player names</legend><div class="names" id="names"></div></fieldset>
+      <p id="name-error" class="error" role="alert" hidden></p>
+      <button class="primary">Start game</button>
+    </form>
+  </section>
+  <section id="game" hidden>
+    <div class="heading"><div><h1 id="sheet-title" tabindex="-1">Score sheet</h1><p id="game-info" class="muted"></p></div><button id="total" class="primary">Total</button></div>
+    <div class="scorebook">
+      <div class="sheet" id="sheet" tabindex="0" role="region" aria-label="Scrollable score sheet">
+        <table aria-labelledby="sheet-title" id="table"><thead></thead><tbody></tbody></table>
+      </div>
+      <p id="round-error" class="error" role="alert" hidden></p>
+      <div class="actions" id="actions"></div>
+    </div>
+  </section>
+</main>
+<dialog id="totals" aria-labelledby="standings-title">
+  <div class="dialog-head"><h2 id="standings-title">Standings</h2><form method="dialog"><button autofocus>Close</button></form></div>
+  <div id="standings"></div>
+</dialog>
+<dialog id="reset-dialog" aria-labelledby="reset-title">
+  <h2 id="reset-title">Start over?</h2>
+  <p class="muted">This clears the current game and all its rounds from this browser.</p>
+  <form class="actions" method="dialog"><button value="cancel" autofocus>Cancel</button><button class="primary" value="reset">Start over</button></form>
+</dialog>
+<script>
+const $ = id => document.getElementById(id);
+const key = 'table-scorebook-v1';
+let game = null;
+let count = 4;
+let setupNames = [];
+try {
+  game = JSON.parse(localStorage.getItem(key));
+} catch {
+  $('storage-error').hidden = false;
+}
+
+function persist() {
+  try {
+    if (game) localStorage.setItem(key, JSON.stringify(game));
+    else localStorage.removeItem(key);
+    $('storage-error').hidden = true;
+  } catch {
+    $('storage-error').hidden = false;
+  }
+}
+
+function element(tag, content, className) {
+  const node = document.createElement(tag);
+  if (content !== undefined) node.textContent = content;
+  if (className) node.className = className;
+  return node;
+}
+
+function button(label, handler, primary = false) {
+  const node = element('button', label, primary ? 'primary' : '');
+  node.type = 'button';
+  node.addEventListener('click', handler);
+  return node;
+}
+
+function message(id, text = '') {
+  $(id).textContent = text;
+  $(id).hidden = !text;
+}
+
+function renderNames() {
+  for (const option of document.querySelectorAll('[data-count]')) {
+    option.setAttribute('aria-pressed', Number(option.dataset.count) === count);
+  }
+  $('names').replaceChildren();
+  for (let index = 0; index < count; index++) {
+    const label = element('label', 'Player ' + (index + 1));
+    const input = element('input');
+    input.required = true;
+    input.value = setupNames[index] ?? '';
+    input.addEventListener('input', () => {
+      setupNames[index] = input.value;
+      input.removeAttribute('aria-invalid');
+      message('name-error');
+    });
+    label.append(input);
+    $('names').append(label);
+  }
+}
+
+function newRound() {
+  return {
+    phase: 'expected',
+    expected: game.names.map(() => ''),
+    made: game.names.map(() => '')
+  };
+}
+
+for (const option of document.querySelectorAll('[data-count]')) {
+  option.onclick = () => {
+    count = Number(option.dataset.count);
+    message('name-error');
+    renderNames();
+  };
+}
+
+$('setup-form').onsubmit = event => {
+  event.preventDefault();
+  const inputs = [...$('names').querySelectorAll('input')];
+  const names = inputs.map(input => input.value.trim());
+  const missing = names.indexOf('');
+  if (missing !== -1) {
+    inputs[missing].setAttribute('aria-invalid', 'true');
+    message('name-error', 'Enter a name for Player ' + (missing + 1) + '.');
+    inputs[missing].focus();
+    return;
+  }
+  game = { names, rounds: [], edit: null };
+  game.rounds.push(newRound());
+  persist();
+  renderGame();
+  $('sheet-title').focus();
+};
+
+function points(expected, made) {
+  const prediction = BigInt(expected);
+  const actual = BigInt(made);
+  return actual < prediction ? 0n : prediction * 10n + actual - prediction;
+}
+
+function format(score) {
+  const decimal = score % 10n;
+  return String(score / 10n) + (decimal ? '.' + decimal : '');
+}
+
+function editable(round, field, editing) {
+  return editing ? field === 'expected' || round.phase === 'complete' : round.phase === field;
+}
+
+function scoreInput(index, player, field, label, value, editing) {
+  const input = element('input', undefined, 'cell');
+  input.inputMode = 'numeric';
+  input.placeholder = '—';
+  input.autocomplete = 'off';
+  input.setAttribute('aria-label', 'Round ' + (index + 1) + ', ' + game.names[player] + ', ' + label);
+  input.dataset.round = index;
+  input.dataset.field = field;
+  input.dataset.player = player;
+  input.value = value;
+  input.addEventListener('input', () => {
+    const source = editing ? game.edit : game.rounds[index];
+    source[field][player] = input.value;
+    input.removeAttribute('aria-invalid');
+    message('round-error');
+    persist();
+  });
+  return input;
+}
+
+function renderRound(round, index) {
+  const group = element('tbody');
+  group.id = 'round-' + index;
+  const editing = game.edit?.index === index;
+  const source = editing ? game.edit : round;
+  if (editing || round.phase !== 'complete') group.className = 'active';
+  for (const [field, label] of [['expected', 'Expected'], ['made', 'Made'], ['score', 'Score']]) {
+    const row = element('tr', undefined, field);
+    const canEnter = field !== 'score' && (editing || !game.edit) && editable(round, field, editing);
+    if (canEnter) row.classList.add('entry');
+    const heading = element('th');
+    heading.scope = 'row';
+    const title = element('div', undefined, 'row-title');
+    const words = element('span', 'R' + (index + 1));
+    words.append(' ', element('small', label));
+    title.append(words);
+    if (field === 'expected' && round.phase !== 'expected' && !game.edit) {
+      const edit = button('Edit', () => beginEdit(index));
+      edit.className = 'edit';
+      edit.setAttribute('aria-label', 'Edit round ' + (index + 1));
+      title.append(edit);
+    }
+    heading.append(title);
+    row.append(heading);
+    game.names.forEach((_, player) => {
+      const cell = element('td');
+      if (canEnter) {
+        cell.append(scoreInput(index, player, field, label, source[field][player], editing));
+      } else {
+        const value = field === 'score'
+          ? (round.phase === 'complete' ? format(points(round.expected[player], round.made[player])) : '—')
+          : source[field][player] || '—';
+        cell.append(element('span', value, 'value'));
+      }
+      row.append(cell);
+    });
+    group.append(row);
+  }
+  return group;
+}
+
+function beginEdit(index) {
+  const { expected, made } = game.rounds[index];
+  game.edit = { index, expected: [...expected], made: [...made] };
+  persist();
+  renderGame();
+  $('round-' + index).querySelector('input').focus();
+}
+
+function validate(source, index, fields) {
+  for (const field of fields) {
+    const player = source[field].findIndex(value => !/^[0-9]+$/.test(value.trim()));
+    if (player !== -1) {
+      const input = $('round-' + index).querySelector('[data-field="' + field + '"][data-player="' + player + '"]');
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+      message('round-error', 'Enter a whole number of 0 or more for ' + game.names[player] + ' in ' + (field === 'made' ? 'Made.' : 'Expected.'));
+      return false;
+    }
+  }
+  for (const field of fields) source[field] = source[field].map(value => String(BigInt(value.trim())));
+  return true;
+}
+
+function roundStatus(index, label) {
+  const status = element('p', 'Round ' + (index + 1), 'round-status');
+  status.append(element('small', label));
+  return status;
+}
+
+function renderActions() {
+  const actions = $('actions');
+  actions.replaceChildren();
+  if (game.edit) {
+    const { index } = game.edit;
+    const round = game.rounds[index];
+    actions.append(
+      roundStatus(index, 'Editing saved entries'),
+      button('Cancel', () => finishEdit(index)),
+      button('Save changes', () => {
+        const fields = round.phase === 'complete' ? ['expected', 'made'] : ['expected'];
+        if (!validate(game.edit, index, fields)) return;
+        for (const field of fields) round[field] = game.edit[field];
+        finishEdit(index);
+      }, true)
+    );
+    return;
+  }
+  const index = game.rounds.length - 1;
+  const round = game.rounds[index];
+  const status = { expected: 'Enter predictions', made: 'Enter actual points', complete: 'Round saved' };
+  actions.append(roundStatus(index, status[round.phase]));
+  if (round.phase === 'complete') {
+    actions.append(button('Add round', () => {
+      game.rounds.push(newRound());
+      persist();
+      renderGame();
+      $('round-' + (index + 1)).querySelector('input').focus();
+    }, true));
+  } else {
+    const field = round.phase;
+    actions.append(button(field === 'expected' ? 'Save expected' : 'Save results', () => {
+      if (!validate(round, index, [field])) return;
+      round.phase = field === 'expected' ? 'made' : 'complete';
+      persist();
+      renderGame();
+      ($('round-' + index).querySelector('input') || actions.querySelector('button')).focus();
+    }, true));
+  }
+}
+
+function finishEdit(index) {
+  game.edit = null;
+  persist();
+  renderGame();
+  $('round-' + index).querySelector('.edit').focus();
+}
+
+function renderGame() {
+  $('setup').hidden = Boolean(game);
+  $('game').hidden = $('restart').hidden = !game;
+  if (!game) {
+    renderNames();
+    return;
+  }
+  message('round-error');
+  $('game-info').textContent = game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
+  const sheet = $('sheet');
+  const { scrollTop, scrollLeft } = sheet;
+  const table = $('table');
+  table.style.setProperty('--players', game.names.length);
+  const headings = element('thead');
+  const row = element('tr');
+  for (const title of ['Round', ...game.names]) {
+    const heading = element('th', title);
+    heading.scope = 'col';
+    row.append(heading);
+  }
+  headings.append(row);
+  table.replaceChildren(headings, ...game.rounds.map(renderRound));
+  sheet.scrollTop = scrollTop;
+  sheet.scrollLeft = scrollLeft;
+  renderActions();
+}
+
+$('total').onclick = () => {
+  const complete = game.rounds.filter(round => round.phase === 'complete');
+  const standings = $('standings');
+  standings.replaceChildren();
+  if (!complete.length) {
+    standings.append(element('p', 'No completed rounds yet', 'muted'));
+  } else {
+    const results = game.names.map((name, player) => ({
+      name,
+      total: complete.reduce((sum, round) => sum + points(round.expected[player], round.made[player]), 0n)
+    })).sort((a, b) => a.total === b.total ? 0 : a.total > b.total ? -1 : 1);
+    const lowest = results.at(-1).total;
+    const allTied = results[0].total === lowest;
+    const list = element('ol', undefined, 'standings');
+    results.forEach(({ name, total }) => {
+      const rank = results.findIndex(result => result.total === total);
+      const tied = results.filter(result => result.total === total).length > 1;
+      const title = !allTied && total === lowest ? 'Dildaar' : ['1st', '2nd', '3rd', '4th'][rank];
+      const entry = element('li', undefined, rank === 0 ? 'leader' : title === 'Dildaar' ? 'last-place' : '');
+      entry.append(element('span', title + (tied ? ' (tie)' : ''), 'rank'), element('span', name), element('strong', format(total)));
+      list.append(entry);
+    });
+    standings.append(element('p', complete.length + (complete.length === 1 ? ' completed round' : ' completed rounds'), 'completed-count'), list);
+  }
+  $('totals').showModal();
+};
+
+$('totals').onclose = () => $('total').focus();
+$('restart').onclick = () => {
+  $('reset-dialog').returnValue = '';
+  $('reset-dialog').showModal();
+};
+$('reset-dialog').onclose = () => {
+  if ($('reset-dialog').returnValue !== 'reset') return;
+  game = null;
+  count = 4;
+  setupNames = [];
+  persist();
+  renderGame();
+  document.querySelector('[data-count="4"]').focus();
+};
+
+renderGame();
+</script>
+</body>
+</html>
