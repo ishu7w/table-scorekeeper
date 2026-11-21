@@ -370,7 +370,7 @@ $('setup-form').onsubmit = event => {
 function points(expected, made) {
   const prediction = BigInt(expected);
   const actual = BigInt(made);
-  return actual < prediction ? 0n : prediction * 10n + actual - prediction;
+  return actual < prediction ? -prediction * 10n : prediction * 10n + actual - prediction;
 }
 
 function roundPoints(round, player) {
