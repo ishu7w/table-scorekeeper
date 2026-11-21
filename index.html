@@ -280,20 +280,63 @@ dialog::backdrop { background: #171e19b3; }
 .suit-dialog button { width: 100%; margin-top: 12px; }
 .suit-dialog button:disabled { opacity: .6; cursor: default; transform: none; }
 .row-title .round-suit { display: inline; font-size: 16px; }
+.header-actions { display: flex; align-items: center; gap: 12px; }
+#rules { background: var(--sage); }
+.setup { max-width: none; }
+.setup-body { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 26px; margin-top: 26px; align-items: start; }
+.setup-body form { margin: 0; }
+.mode-options button { padding: 10px 8px; text-align: left; line-height: 1.25; }
+.mode-options button > span { display: block; }
+.mode-options small { display: block; margin-top: 4px; font-size: 11px; font-weight: 650; }
+.round-guide {
+  padding: 22px;
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  background: var(--sage);
+  box-shadow: var(--large-shadow);
+}
+.round-guide h2 { font-size: 26px; }
+.guide-steps { list-style: none; margin: 18px 0 0; padding: 0; }
+.guide-steps li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 12px 0; border-top: 1px solid var(--ink); }
+.step-number { display: grid; place-items: center; align-self: start; min-height: 30px; border: 2px solid var(--ink); border-radius: 5px; background: var(--yellow); font-weight: 800; }
+.guide-steps p { margin-top: 2px; font-size: 13px; }
+.game-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 12px; font-size: 13px; }
+.game-mode { padding: 4px 7px; border: 2px solid var(--ink); border-radius: 5px; background: var(--sage); font-weight: 800; }
+.round-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; background: var(--charcoal); color: var(--white); border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 800; }
+.suit-chip { display: inline-flex; gap: 5px; align-items: center; padding: 3px 8px; border: 2px solid var(--ink); border-radius: 6px; background: var(--yellow); color: var(--ink); }
+.suit-chip .suit-glyph { font-size: 20px; line-height: 1; }
+.sheet { border-radius: 0; }
+.rule-list { margin: 0; }
+.rule-list dt { border-top: 1px solid var(--ink); padding-top: 10px; font-weight: 800; }
+.rule-list dd { margin: 4px 0 10px; font-size: 14px; line-height: 1.4; }
+@media (max-width: 650px) {
+  .setup-body { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+}
+@media (max-width: 420px) {
+  .header-actions { gap: 8px; }
+  .header-actions button { padding-inline: 8px; font-size: 13px; }
+  .game-meta { gap: 5px 8px; }
+}
 </style>
 </head>
 <body>
 <header><div class="bar">
   <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Table</div>
-  <button id="restart" hidden>Start over</button>
+  <div class="header-actions"><button id="rules">Rules</button><button id="restart" hidden>Start over</button></div>
 </div></header>
 <main>
   <p id="storage-error" class="error" role="status" hidden>Browser storage is unavailable. Keep this tab open to preserve your game.</p>
   <section class="setup" id="setup">
     <h1>Set up your table</h1>
     <p class="muted">Enter names in the order they should appear on the score sheet.</p>
+    <div class="setup-body">
     <form id="setup-form" novalidate>
-      <fieldset><legend>Game mode</legend><div class="choices"><button type="button" data-mode="blind" aria-pressed="true">Blind &amp; Shuffle</button><button type="button" data-mode="normal" aria-pressed="false">Normal Play</button></div></fieldset>
+      <fieldset><legend>Game mode</legend>
+        <div class="choices mode-options">
+          <button type="button" data-mode="blind" aria-pressed="true"><span>Blind &amp; Shuffle</span><small>Private predictions</small></button>
+          <button type="button" data-mode="normal" aria-pressed="false"><span>Normal Play</span><small>Open predictions</small></button>
+        </div>
+      </fieldset>
       <fieldset><legend>Number of players</legend>
         <div class="choices"><button type="button" data-count="4" aria-pressed="true">4 players</button><button type="button" data-count="5" aria-pressed="false">5 players</button></div>
       </fieldset>
@@ -301,10 +344,20 @@ dialog::backdrop { background: #171e19b3; }
       <p id="name-error" class="error" role="alert" hidden></p>
       <button class="primary">Start game</button>
     </form>
+    <aside class="round-guide" aria-labelledby="guide-title">
+      <h2 id="guide-title">How a round works</h2>
+      <ol class="guide-steps">
+        <li><span class="step-number" aria-hidden="true">1</span><div><strong>Spin for a suit</strong><p>Tap Spin to draw one of the four suits.</p></div></li>
+        <li><span class="step-number" aria-hidden="true">2</span><div><strong>Set predictions</strong><p>Enter at least one expected point per player.</p></div></li>
+        <li><span class="step-number" aria-hidden="true">3</span><div><strong>Record the result</strong><p>Enter what each player made, then save the round.</p></div></li>
+      </ol>
+    </aside>
+    </div>
   </section>
   <section id="game" hidden>
-    <div class="heading"><div><h1 id="sheet-title" tabindex="-1">Score sheet</h1><p id="game-info" class="muted"></p></div><button id="total" class="primary">Total</button></div>
+    <div class="heading"><div><h1 id="sheet-title" tabindex="-1">Score sheet</h1><div class="game-meta"><span id="game-mode" class="game-mode"></span><span id="game-info"></span></div></div><button id="total" class="primary">Total</button></div>
     <div class="scorebook">
+      <div class="round-banner"><span id="sheet-round"></span><span id="sheet-suit" class="suit-chip"></span></div>
       <div class="sheet" id="sheet" tabindex="0" role="region" aria-label="Scrollable score sheet">
         <table aria-labelledby="sheet-title" id="table"><thead></thead><tbody></tbody></table>
       </div>
@@ -313,6 +366,15 @@ dialog::backdrop { background: #171e19b3; }
     </div>
   </section>
 </main>
+<dialog id="rules-dialog" aria-labelledby="rules-title">
+  <div class="dialog-head"><h2 id="rules-title">Table rules</h2><form method="dialog"><button autofocus>Close</button></form></div>
+  <dl class="rule-list">
+    <dt>Normal Play</dt><dd>Everyone’s predictions are visible. Enter Expected points before recording Made points.</dd>
+    <dt>Blind &amp; Shuffle</dt><dd>Players predict privately, one at a time. If predictions add up to 9 or less, the round is reshuffled and each player earns their prediction.</dd>
+    <dt>Scoring</dt><dd>Meet your prediction to earn it, plus 0.1 for each extra point. Fall short and lose the full prediction. Expected starts at 1 and Made starts at 0.</dd>
+    <dt>Suit draw</dt><dd>Each new round starts with a spin. Each suit has a 25% chance, so repeats can happen.</dd>
+  </dl>
+</dialog>
 <dialog id="totals" aria-labelledby="standings-title">
   <div class="dialog-head"><h2 id="standings-title">Standings</h2><form method="dialog"><button autofocus>Close</button></form></div>
   <div id="standings"></div>
@@ -764,7 +826,16 @@ function renderGame() {
     return;
   }
   message('round-error');
-  $('game-info').textContent = (game.mode === 'blind' ? 'Blind & Shuffle' : 'Normal Play') + ' · ' + game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
+  $('game-mode').textContent = game.mode === 'blind' ? 'Blind & Shuffle' : 'Normal Play';
+  $('game-info').textContent = game.names.length + ' players · ' + game.rounds.length + (game.rounds.length === 1 ? ' round' : ' rounds');
+  const index = game.edit?.index ?? game.rounds.length - 1;
+  const round = game.rounds[index];
+  const suit = suits[round.suit];
+  $('sheet-round').textContent = (game.edit ? 'Editing round ' : 'Round ') + (index + 1);
+  const suitChip = $('sheet-suit');
+  suitChip.hidden = !suit && round.suit !== null;
+  if (suit) suitChip.replaceChildren(suitGlyph(suit), suit.name);
+  else suitChip.textContent = 'Suit pending';
   const sheet = $('sheet');
   const { scrollTop, scrollLeft } = sheet;
   const table = $('table');
@@ -810,6 +881,8 @@ $('total').onclick = () => {
   $('totals').showModal();
 };
 
+$('rules').onclick = () => $('rules-dialog').showModal();
+$('rules-dialog').onclose = () => $('rules').focus();
 $('totals').onclose = () => $('total').focus();
 $('restart').onclick = () => {
   $('reset-dialog').returnValue = '';
