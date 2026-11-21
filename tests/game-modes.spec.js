@@ -1,5 +1,14 @@
 const { test, expect } = require('@playwright/test');
 
+test.use({ reducedMotion: 'reduce' });
+
+async function spinSuit(page) {
+  await page.getByRole('button', { name: 'Spin', exact: true }).click();
+  await expect(page.locator('#suit-result')).toContainText(/Spades|Hearts|Diamonds|Clubs/);
+  await page.getByRole('button', { name: 'Continue to score sheet' }).click();
+  await expect(page.locator('.cell:focus')).toBeVisible();
+}
+
 async function setup(page, mode = 'blind') {
   await page.goto('/');
   await page.evaluate(() => localStorage.clear());
@@ -9,6 +18,7 @@ async function setup(page, mode = 'blind') {
     await page.locator('#names input').nth(i).fill(name);
   }
   await page.getByRole('button', { name: 'Start game' }).click();
+  await spinSuit(page);
 }
 
 async function blindPredictions(page, scores) {
@@ -86,7 +96,30 @@ test('reshuffle totals carry into subsequent rounds', async ({ page }) => {
   await setup(page);
   await blindPredictions(page, [2, 2, 2, 2]);
   await page.getByRole('button', { name: 'Add round' }).click();
+  await spinSuit(page);
   await expect(page.locator('#round-1')).toBeVisible();
   await page.getByRole('button', { name: 'Total' }).click();
   await expect(page.locator('#standings')).toContainText('2');
+});
+
+test('a pending suit draw survives reload and saves the selected suit', async ({ page }) => {
+  await page.addInitScript(() => {
+    crypto.getRandomValues = bytes => {
+      bytes[0] = 255;
+      return bytes;
+    };
+  });
+  await setup(page, 'normal');
+  for (const input of await page.locator('#round-0 [data-field="expected"]').all()) await input.fill('1');
+  await page.getByRole('button', { name: 'Save expected' }).click();
+  for (const input of await page.locator('#round-0 [data-field="made"]').all()) await input.fill('0');
+  await page.getByRole('button', { name: 'Save results' }).click();
+  await page.getByRole('button', { name: 'Add round' }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Spin', exact: true })).toBeEnabled();
+  await spinSuit(page);
+  await expect(page.locator('#round-1 .round-suit')).toHaveAccessibleName('Clubs');
+  await page.reload();
+  await expect(page.locator('#suit-dialog')).toBeHidden();
+  await expect(page.locator('#round-1 .round-suit')).toHaveAccessibleName('Clubs');
 });

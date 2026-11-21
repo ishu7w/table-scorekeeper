@@ -218,6 +218,68 @@ dialog::backdrop { background: #171e19b3; }
 @media (prefers-reduced-motion: reduce) {
   button { transition: none; }
 }
+.suit-dialog { text-align: center; }
+.suit-dialog h2 { margin-bottom: 16px; }
+.wheel-stage {
+  position: relative;
+  width: min(232px, 100%);
+  margin: 20px auto 16px;
+}
+.wheel-stage::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 11px solid transparent;
+  border-top: 22px solid var(--ink);
+}
+.suit-wheel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: var(--ink);
+}
+.wheel-sectors {
+  position: absolute;
+  inset: -22%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  transform: rotate(45deg);
+}
+.wheel-sectors i { background: var(--white); }
+.wheel-sectors i:first-child { background: var(--yellow); }
+.wheel-sectors i:nth-child(2) { background: var(--sage); }
+.wheel-sectors i:nth-child(3) { background: var(--sage); }
+.wheel-hub {
+  position: absolute;
+  inset: 44%;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--yellow);
+}
+.suit-glyph { font-family: Georgia, "Times New Roman", serif; }
+.suit-red { color: #a3262a; }
+.suit-wheel .suit-glyph {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: clamp(34px, 13vw, 52px);
+  line-height: 1;
+}
+.suit-wheel .suit-glyph:nth-of-type(1) { left: 50%; top: 19%; }
+.suit-wheel .suit-glyph:nth-of-type(2) { left: 81%; top: 50%; }
+.suit-wheel .suit-glyph:nth-of-type(3) { left: 50%; top: 81%; }
+.suit-wheel .suit-glyph:nth-of-type(4) { left: 19%; top: 50%; }
+#suit-result { min-height: 2em; font-weight: 800; }
+.suit-dialog button { width: 100%; margin-top: 12px; }
+.suit-dialog button:disabled { opacity: .6; cursor: default; transform: none; }
+.row-title .round-suit { display: inline; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -260,9 +322,27 @@ dialog::backdrop { background: #171e19b3; }
   <p class="muted">This clears the current game and all its rounds from this browser.</p>
   <form class="actions" method="dialog"><button value="cancel" autofocus>Cancel</button><button class="primary" value="reset">Start over</button></form>
 </dialog>
+<dialog id="suit-dialog" class="suit-dialog" aria-labelledby="suit-title">
+  <h2 id="suit-title">Draw a suit</h2>
+  <div class="wheel-stage" aria-hidden="true">
+    <div class="suit-wheel" id="suit-wheel">
+      <div class="wheel-sectors"><i></i><i></i><i></i><i></i></div>
+      <div class="wheel-hub"></div>
+    </div>
+  </div>
+  <p id="suit-result" role="status"></p>
+  <button type="button" id="spin" class="primary">Spin</button>
+  <form method="dialog"><button id="suit-continue" class="primary" hidden>Continue to score sheet</button></form>
+</dialog>
 <script>
 const $ = id => document.getElementById(id);
 const key = 'table-scorebook-v1';
+const suits = [
+  { name: 'Spades', glyph: '♠︎', red: false },
+  { name: 'Hearts', glyph: '♥︎', red: true },
+  { name: 'Diamonds', glyph: '♦︎', red: true },
+  { name: 'Clubs', glyph: '♣︎', red: false }
+];
 let game = null;
 let count = 4;
 let selectedMode = 'blind';
@@ -336,10 +416,71 @@ function newRound() {
     phase: 'expected',
     reshuffled: false,
     turn: 0,
+    suit: null,
     expected: game.names.map(() => ''),
     made: game.names.map(() => '')
   };
 }
+
+function suitGlyph(suit) {
+  const symbol = element('span', suit.glyph, suit.red ? 'suit-glyph suit-red' : 'suit-glyph');
+  symbol.setAttribute('aria-hidden', 'true');
+  return symbol;
+}
+
+for (const suit of suits) $('suit-wheel').append(suitGlyph(suit));
+
+function startRound() {
+  game.rounds.push(newRound());
+  persist();
+  renderGame();
+  openSuitWheel();
+}
+
+function openSuitWheel() {
+  const index = game.rounds.length - 1;
+  const dialog = $('suit-dialog');
+  const spin = $('spin');
+  const next = $('suit-continue');
+  $('suit-title').textContent = 'Round ' + (index + 1) + ' suit draw';
+  $('suit-result').textContent = 'Spin to draw a suit.';
+  $('suit-wheel').style.transform = 'rotate(0deg)';
+  spin.hidden = false;
+  spin.disabled = false;
+  next.hidden = true;
+  dialog.oncancel = event => {
+    if (next.hidden) event.preventDefault();
+  };
+  dialog.onclose = () => $('round-' + index).querySelector('input').focus();
+  dialog.showModal();
+  spin.focus();
+}
+
+$('spin').onclick = async () => {
+  const spin = $('spin');
+  const round = game.rounds.at(-1);
+  const wheel = $('suit-wheel');
+  const result = $('suit-result');
+  spin.disabled = true;
+  round.suit = crypto.getRandomValues(new Uint8Array(1))[0] % suits.length;
+  persist();
+  result.textContent = 'Spinning…';
+  const rotation = (1440 - round.suit * 90) + 'deg';
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    await wheel.animate(
+      [{ transform: 'rotate(0deg)' }, { transform: 'rotate(' + rotation + ')' }],
+      { duration: 1800, easing: 'cubic-bezier(.15,.65,.15,1)', fill: 'forwards' }
+    ).finished;
+    for (const animation of wheel.getAnimations()) animation.cancel();
+  }
+  wheel.style.transform = 'rotate(' + rotation + ')';
+  const suit = suits[round.suit];
+  result.replaceChildren(suitGlyph(suit), ' ' + suit.name);
+  renderGame();
+  spin.hidden = true;
+  $('suit-continue').hidden = false;
+  $('suit-continue').focus();
+};
 
 for (const option of document.querySelectorAll('[data-count]')) {
   option.onclick = () => {
@@ -361,10 +502,7 @@ $('setup-form').onsubmit = event => {
     return;
   }
   game = { names, mode: selectedMode, rounds: [], edit: null };
-  game.rounds.push(newRound());
-  persist();
-  renderGame();
-  $('sheet-title').focus();
+  startRound();
 };
 
 function points(expected, made) {
@@ -396,7 +534,7 @@ function submitBlindPrediction(index, direction = 1) {
   const round = game.rounds[index];
   const player = round.turn || 0;
   const value = round.expected[player].trim();
-  if (!/^[0-9]+$/.test(value) || BigInt(value) < 1n) {
+  if (!validPoints(value, 1n)) {
     const input = $('round-' + index).querySelector('[data-field="expected"][data-player="' + player + '"]');
     if (input) {
       input.setAttribute('aria-invalid', 'true');
@@ -415,7 +553,7 @@ function submitBlindPrediction(index, direction = 1) {
     selectBlindPlayer(index, 0);
     return;
   }
-  const missing = round.expected.findIndex(score => !/^[0-9]+$/.test(score.trim()));
+  const missing = round.expected.findIndex(score => !validPoints(score, 1n));
   if (missing !== -1) {
     selectBlindPlayer(index, missing);
     message('round-error', 'Enter a prediction for ' + game.names[missing] + ' before finishing.');
@@ -479,6 +617,16 @@ function renderRound(round, index) {
     heading.scope = 'row';
     const title = element('div', undefined, 'row-title');
     const words = element('span', 'R' + (index + 1) + (round.reshuffled ? '*' : ''));
+    const suit = suits[round.suit];
+    if (field === 'expected' && suit) {
+      const marker = suitGlyph(suit);
+      marker.classList.add('round-suit');
+      marker.removeAttribute('aria-hidden');
+      marker.setAttribute('role', 'img');
+      marker.setAttribute('aria-label', suit.name);
+      marker.title = suit.name;
+      words.append(' ', marker);
+    }
     words.append(' ', element('small', label));
     title.append(words);
     if (field === 'expected' && round.phase !== 'expected' && !round.reshuffled && !game.edit) {
@@ -529,25 +677,21 @@ function beginEdit(index) {
   $('round-' + index).querySelector('input').focus();
 }
 
+function validPoints(value, minimum) {
+  const digits = value.trim();
+  return /^[0-9]+$/.test(digits) && BigInt(digits) >= minimum;
+}
+
 function validate(source, index, fields) {
   for (const field of fields) {
-    const player = source[field].findIndex(value => {
-  const score = value.trim();
-
-  return !/^[0-9]+$/.test(score) ||
-         (field === 'expected' && BigInt(score) < 1n);
-});
+    const isExpected = field === 'expected';
+    const player = source[field].findIndex(value => !validPoints(value, isExpected ? 1n : 0n));
     if (player !== -1) {
       const input = $('round-' + index).querySelector('[data-field="' + field + '"][data-player="' + player + '"]');
       input.setAttribute('aria-invalid', 'true');
       input.focus();
-      message(
-  'round-error',
-  'Enter a whole number of ' +
-  (field === 'expected' ? '1' : '0') +
-  ' or more for ' + game.names[player] +
-  ' in ' + (field === 'expected' ? 'Expected' : 'Made') + '.'
-);
+      const requirement = isExpected ? 'at least 1 in Expected' : '0 or more in Made';
+      message('round-error', 'Enter a whole number of ' + requirement + ' for ' + game.names[player] + '.');
       return false;
     }
   }
@@ -581,7 +725,7 @@ function renderActions() {
   }
   const index = game.rounds.length - 1;
   const round = game.rounds[index];
-  const status = { expected: 'Enter predictions', made: 'Enter actual points', complete: round.reshuffled ? 'Reshuffled round (*) · predictions added to totals' : 'Round saved' };
+  const status = { expected: 'Enter predictions of 1 or more', made: 'Enter actual points', complete: round.reshuffled ? 'Reshuffled round (*) · predictions added to totals' : 'Round saved' };
   if (blindEntry(round)) {
     const player = round.turn || 0;
     actions.append(
@@ -592,12 +736,7 @@ function renderActions() {
   }
   actions.append(roundStatus(index, status[round.phase]));
   if (round.phase === 'complete') {
-    actions.append(button('Add round', () => {
-      game.rounds.push(newRound());
-      persist();
-      renderGame();
-      $('round-' + (index + 1)).querySelector('input').focus();
-    }, true));
+    actions.append(button('Add round', startRound, true));
   } else {
     const field = round.phase;
     actions.append(button(field === 'expected' ? 'Save expected' : 'Save results', () => {
@@ -690,6 +829,7 @@ $('reset-dialog').onclose = () => {
 
 if (game && !game.mode) { game.mode = 'normal'; persist(); }
 renderGame();
+if (game?.rounds.at(-1)?.suit === null) openSuitWheel();
 </script>
 </body>
 </html>
