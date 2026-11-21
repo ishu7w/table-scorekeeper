@@ -79,7 +79,7 @@ test('normal play shows predictions and does not reshuffle low totals', async ({
   await page.getByRole('button', { name: 'Save results' }).click();
   await page.getByRole('button', { name: 'Total' }).click();
   await expect(page.locator('#standings')).toContainText('2.1');
-  await expect(page.locator('#standings')).toContainText('0');
+  await expect(page.locator('#standings')).toContainText('C-2');
 });
 
 test('reshuffle totals carry into subsequent rounds', async ({ page }) => {
