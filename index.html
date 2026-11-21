@@ -396,13 +396,13 @@ function submitBlindPrediction(index, direction = 1) {
   const round = game.rounds[index];
   const player = round.turn || 0;
   const value = round.expected[player].trim();
-  if (!/^[0-9]+$/.test(value)) {
+  if (!/^[0-9]+$/.test(value) || BigInt(value) < 1n) {
     const input = $('round-' + index).querySelector('[data-field="expected"][data-player="' + player + '"]');
     if (input) {
       input.setAttribute('aria-invalid', 'true');
       input.focus();
     }
-    message('round-error', 'Enter a whole number of 0 or more for ' + game.names[player] + '.');
+    message('round-error', 'Enter a whole number of 1 or more for ' + game.names[player] + '.');
     return;
   }
   round.expected[player] = String(BigInt(value));
@@ -531,12 +531,23 @@ function beginEdit(index) {
 
 function validate(source, index, fields) {
   for (const field of fields) {
-    const player = source[field].findIndex(value => !/^[0-9]+$/.test(value.trim()));
+    const player = source[field].findIndex(value => {
+  const score = value.trim();
+
+  return !/^[0-9]+$/.test(score) ||
+         (field === 'expected' && BigInt(score) < 1n);
+});
     if (player !== -1) {
       const input = $('round-' + index).querySelector('[data-field="' + field + '"][data-player="' + player + '"]');
       input.setAttribute('aria-invalid', 'true');
       input.focus();
-      message('round-error', 'Enter a whole number of 0 or more for ' + game.names[player] + ' in ' + (field === 'made' ? 'Made.' : 'Expected.'));
+      message(
+  'round-error',
+  'Enter a whole number of ' +
+  (field === 'expected' ? '1' : '0') +
+  ' or more for ' + game.names[player] +
+  ' in ' + (field === 'expected' ? 'Expected' : 'Made') + '.'
+);
       return false;
     }
   }
